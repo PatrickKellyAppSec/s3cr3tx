@@ -14,6 +14,10 @@ using s3cr3tx.Controllers;
 using System.Collections.Specialized;
 using System.Reflection.Metadata;
 using System.Text.Json;
+using System.ComponentModel.DataAnnotations;
+using Microsoft.OpenApi.Models;
+using Swashbuckle.AspNetCore.SwaggerGen;
+using Newtonsoft.Json;
 
 namespace s3cr3tx.Controllers
 {
@@ -21,15 +25,28 @@ namespace s3cr3tx.Controllers
     [Route("[controller]")]
     public class ValuesController : ControllerBase
     {
-   
 
+        /// <summary>
+        /// Gets the Encrypted or Decrypted Text.
+        /// </summary>
+        /// <remarks>
+        /// curl -X "GET" https://localhost:7192/Values --header "accept: text/plain" --header "Email: sales@gratitech.com" --header "APIToken: wrxyw7HDm3vCv+KAugoKwrjLhsOHw6Nlw5AmecO94oCedlnCocOELFnCrGtUIcK/fsOQy4bDuuKAnVUETxLigKFTw5nLhsKrUFItMxfDgMOmFcONwrc8a8O4X8OFw5Ruwqo94oCZ" --header "AuthCode: w4Rrxb7DnRPCqDUAw6ljK8O9w4Zw4oCcNMOawqnDlcKzJR8zbsOlw7zDlFFKP1DCrRImdFVz4oCUw6nDggRSw45/KcKjw7dgYRd8GcK0xb7DlHrigLrCvMOvN1ZdSzo=" --header "EorD: E" --header "Input: Secr3tUs3rnameOrS3cr3tP@Ssw0rd" > output.text
+        /// </remarks>
+        /// <returns>The Encrypted or Decrypted Text.</returns>
         [HttpGet(Name = "GetS3cr3tx")]
-        public String Get()
+        [Produces("text/plain")]
+        public String Get([FromHeader(Name = "Email")] string Email, [FromHeader(Name = "APIToken")] string APIKey, [FromHeader(Name = "AuthCode")] string Acode, [FromHeader(Name = "EorD")] string EorD, [FromHeader(Name = "Input")] string Input)
         {
             try
             {
+
                 //foreach (System.Collections.Generic.KeyValuePair<string,Microsoft.Extensions.Primitives.StringValues> header in Request.Headers)
                 //{
+                string strEmail = @"";
+                if (Request.Headers.TryGetValue(@"Email", out Microsoft.Extensions.Primitives.StringValues svEmail))
+                {
+                    strEmail = svEmail[0];
+                }
                 string strAuth = @"";
                 if (Request.Headers.TryGetValue(@"AuthCode", out Microsoft.Extensions.Primitives.StringValues svAuth))
                 {
@@ -40,42 +57,51 @@ namespace s3cr3tx.Controllers
                 {
                     strToken = svToken[0];
                 }
-                string strEmail = @"";
-                if (Request.Headers.TryGetValue(@"Email", out Microsoft.Extensions.Primitives.StringValues svEmail))
+                if (strAuth != strToken)
                 {
-                    strEmail = svEmail[0];
-                }
-                string strInput = @"";
-                if (Request.Headers.TryGetValue(@"Input", out Microsoft.Extensions.Primitives.StringValues svInput))
-                {
-                    strInput = svInput[0];
-                }
-                string strEoD = @"";
-                if (Request.Headers.TryGetValue(@"EorD", out Microsoft.Extensions.Primitives.StringValues svEorD))
-                {
-                    strEoD = svEorD[0];
-                }
-                bool blnEnc = false;
-                if (strEoD.ToString().ToUpper().StartsWith(@"E"))
-                {
-                    blnEnc = true;
-                }
-                string strD = @"";
-                if (Request.Headers.TryGetValue(@"Def", out Microsoft.Extensions.Primitives.StringValues svD))
-                {
-                    strD = svD[0];
-                }
-                bool blnD = false;
-                if (strD.ToString().ToUpper().StartsWith(@"T"))
-                {
-                    blnD = true;
-                }
+                    
+                    string strInput = @"";
+                    if (Request.Headers.TryGetValue(@"Input", out Microsoft.Extensions.Primitives.StringValues svInput))
+                    {
+                        strInput = svInput[0];
+                    }
+                    string strEoD = @"";
+                    if (Request.Headers.TryGetValue(@"EorD", out Microsoft.Extensions.Primitives.StringValues svEorD))
+                    {
+                        strEoD = svEorD[0];
+                    }
+                    bool blnEnc = false;
+                    if (strEoD.ToString().ToUpper().StartsWith(@"E"))
+                    {
+                        blnEnc = true;
+                    }
+                    string strD = @"";
+                    if (Request.Headers.TryGetValue(@"Def", out Microsoft.Extensions.Primitives.StringValues svD))
+                    {
+                        strD = svD[0];
+                    }
+                    bool blnD = false;
+                    if (strD.ToString().ToUpper().StartsWith(@"T"))
+                    {
+                        blnD = true;
+                    }
 
 
-                string strResult = @"";
-                strResult = GetResult(strAuth, strToken, strEmail, strInput, blnEnc, blnD);
-                LogIt(strResult, @"Result-from ValuesController Get From: " + strEmail + @" using input: " + strInput);
-                return strResult;
+                    string strResult = @"";
+                    strResult = GetResult(strAuth, strToken, strEmail, strInput, blnEnc, blnD);
+                    LogIt(strResult, @"Result-from ValuesController Get From: " + strEmail + @" using input: " + strInput);
+                    return strResult;
+                }
+                else
+                {
+                    NewK newK = new NewK();
+                    newK.email = strEmail;
+                    newK.pd = strAuth;
+                    newK.pd2 = strToken;
+                    string strNK = System.Text.Json.JsonSerializer.Serialize<NewK>(newK);
+                    string strResult = Post(newK);
+                    return strResult;
+                }
             }
             catch (Exception ex)
             {
@@ -86,15 +112,33 @@ namespace s3cr3tx.Controllers
             }
         }
 
-
+        /// <summary>
+        /// Creates a new s3cr3tx API account.</summary>
+        /// <remarks>
+        /// Sample request:
+        /// 
+        ///     POST /Values
+        ///     {        
+        ///       "email": "sales@gratitech.com",
+        ///       "pd": "abc123",
+        ///       "pd2": "abc123"        
+        ///     }
+        /// </remarks>
+        /// <returns>The new s3cr3tx API Key and Auth Code for the submitted email address</returns>
+        /// <response code="200">Returns the newly created API Key and AuthCode</response>
+        /// <response code="400">If the item is null</response>
+        // POST: /Values
         [HttpPost(Name = "PostS3cr3tx")]
-        public String Post(string jsonString)
+        [ProducesResponseType(200)]
+        [ProducesResponseType(400)]
+        [Produces("text/plain")]
+        public String Post([FromBody] NewK newAcct)//string jsonString)
         {
 
-            try { 
-               NewK nk = JsonSerializer.Deserialize<NewK>(jsonString);
+            try {
+                NewK nk = newAcct;//System.Text.Json.JsonSerializer.Deserialize<NewK>(newAcct);
                 string strResult = @"";
-            string strUserEmail = nk.name;
+            string strUserEmail = nk.email;
             //string strUserEmail = data["name"];
             //string strPw = data["pwd"];
             string strPw = nk.pd;
@@ -191,7 +235,7 @@ namespace s3cr3tx.Controllers
             }
             catch (RegexMatchTimeoutException e)
             {
-                var con = new SqlConnection(@"Data Source=.;Initial Catalog=s3cr3tx;User=sa;Password=yourStrong(!)Password");
+                var con = new SqlConnection(@"Data Source=.;Initial Catalog=s3cr3tx;Integrated Security=SSPI");
                 SqlCommand command = new SqlCommand();
                 command.CommandType = CommandType.StoredProcedure;
                 command.CommandText = @"dbo.insertLog";
@@ -206,7 +250,7 @@ namespace s3cr3tx.Controllers
             }
             catch (ArgumentException e)
             {
-                SqlConnection con = new SqlConnection(@"Data Source=.;Initial Catalog=s3cr3tx;User=sa;Password=yourStrong(!)Password");
+                SqlConnection con = new SqlConnection(@"Data Source=.;Initial Catalog=s3cr3tx;Integrated Security=SSPI");
                 SqlCommand command = new SqlCommand();
                 command.CommandType = CommandType.StoredProcedure;
                 command.CommandText = @"dbo.insertLog";
@@ -228,7 +272,7 @@ namespace s3cr3tx.Controllers
             }
             catch (RegexMatchTimeoutException e)
             {
-                SqlConnection con = new SqlConnection(@"Data Source=.;Initial Catalog=s3cr3tx;User=sa;Password=yourStrong(!)Password");
+                SqlConnection con = new SqlConnection(@"Data Source=.;Initial Catalog=s3cr3tx;Integrated Security=SSPI");
                 SqlCommand command = new SqlCommand();
                 command.CommandType = CommandType.StoredProcedure;
                 command.CommandText = @"dbo.insertLog";
@@ -247,7 +291,7 @@ namespace s3cr3tx.Controllers
             try
             {
                 string strResult = @"";
-                string strConnection = @"Data Source=.;User=sa;Password=yourStrong(!)Password;Initial Catalog=s3cr3tx";
+                string strConnection = @"Data Source=.;Integrated Security=SSPI;Initial Catalog=s3cr3tx";
                 SqlConnection sql = new SqlConnection(strConnection);
                 SqlCommand command = new SqlCommand();
                 command.CommandText = @"dbo.EorD";
@@ -351,7 +395,7 @@ namespace s3cr3tx.Controllers
 
         private static void LogIt(string strMessage, string strSource)
         { //@"s3cr3tx.api.ValuesController"
-            string strConnection = @"Data Source=.;User=sa;Password=yourStrong(!)Password;Initial Catalog=s3cr3tx";
+            string strConnection = @"Data Source=.;Integrated Security=SSPI;Initial Catalog=s3cr3tx";
             SqlConnection sql = new SqlConnection(strConnection);
             SqlCommand command = new SqlCommand();
             command.CommandText = @"dbo.insertLog";
@@ -398,7 +442,7 @@ namespace s3cr3tx.Controllers
             {
                 bool result = false;
                 //SQLConnection, Command, ExecuteNonQuery
-                SqlConnection con = new SqlConnection(@"Data Source=.;Initial Catalog=s3cr3tx;User=sa;Password=yourStrong(!)Password");
+                SqlConnection con = new SqlConnection(@"Data Source=.;Initial Catalog=s3cr3tx;Integrated Security=SSPI");
                 SqlCommand command = new SqlCommand();
                 command.CommandType = CommandType.StoredProcedure;
                 command.CommandText = @"dbo.InsertM";
@@ -432,7 +476,7 @@ namespace s3cr3tx.Controllers
             {
                 //Console.WriteLine(ex.GetBaseException().ToString());
 
-                SqlConnection con = new SqlConnection(@"Data Source=.;Initial Catalog=s3cr3tx;User=sa;Password=yourStrong(!)Password");
+                SqlConnection con = new SqlConnection(@"Data Source=.;Initial Catalog=s3cr3tx;Integrated Security=SSPI");
                 SqlCommand command = new SqlCommand();
                 command.CommandType = CommandType.StoredProcedure;
                 command.CommandText = @"dbo.insertLog";
@@ -456,7 +500,7 @@ namespace s3cr3tx.Controllers
                     string strGuid = Guid.NewGuid().ToString();
                     string strCreated = @"ADMIN";
                     bool IsValid = true;
-                    SqlConnection con = new SqlConnection(@"Data Source=.;Initial Catalog=s3cr3tx;User=sa;Password=yourStrong(!)Password");
+                    SqlConnection con = new SqlConnection(@"Data Source=.;Initial Catalog=s3cr3tx;Integrated Security=SSPI");
                     SqlCommand command = new SqlCommand();
                     command.CommandType = CommandType.StoredProcedure;
                     command.CommandText = @"dbo.InsertAuth";
@@ -483,7 +527,7 @@ namespace s3cr3tx.Controllers
             catch (Exception ex)
             {
                 //Console.WriteLine(ex.GetBaseException().ToString());
-                SqlConnection con = new SqlConnection(@"Data Source=.;Initial Catalog=s3cr3tx;User=sa;Password=yourStrong(!)Password");
+                SqlConnection con = new SqlConnection(@"Data Source=.;Initial Catalog=s3cr3tx;Integrated Security=SSPI");
                 SqlCommand command = new SqlCommand();
                 command.CommandType = CommandType.StoredProcedure;
                 command.CommandText = @"dbo.insertLog";
@@ -507,7 +551,7 @@ namespace s3cr3tx.Controllers
                     string strGuid = Guid.NewGuid().ToString();
                     string strCreated = @"ADMIN";
                     bool IsValid = true;
-                    SqlConnection con = new SqlConnection(@"Data Source=.;Initial Catalog=s3cr3tx;User=sa;Password=yourStrong(!)Password");
+                    SqlConnection con = new SqlConnection(@"Data Source=.;Initial Catalog=s3cr3tx;Integrated Security=SSPI");
                     SqlCommand command = new SqlCommand();
                     command.CommandType = CommandType.StoredProcedure;
                     command.CommandText = @"dbo.InsertAuth";
@@ -534,7 +578,7 @@ namespace s3cr3tx.Controllers
             catch (Exception ex)
             {
                 //Console.WriteLine(ex.GetBaseException().ToString());
-                SqlConnection con = new SqlConnection(@"Data Source=.;Initial Catalog=s3cr3tx;User=sa;Password=yourStrong(!)Password");
+                SqlConnection con = new SqlConnection(@"Data Source=.;Initial Catalog=s3cr3tx;Integrated Security=SSPI");
                 SqlCommand command = new SqlCommand();
                 command.CommandType = CommandType.StoredProcedure;
                 command.CommandText = @"dbo.insertLog";
@@ -574,7 +618,7 @@ namespace s3cr3tx.Controllers
             }
             catch (RegexMatchTimeoutException e)
             {
-                SqlConnection con = new SqlConnection(@"Data Source=.;Initial Catalog=s3cr3tx;User=sa;Password=yourStrong(!)Password");
+                SqlConnection con = new SqlConnection(@"Data Source=.;Initial Catalog=s3cr3tx;Integrated Security=SSPI");
                 SqlCommand command = new SqlCommand();
                 command.CommandType = CommandType.StoredProcedure;
                 command.CommandText = @"dbo.insertLog";
@@ -589,7 +633,7 @@ namespace s3cr3tx.Controllers
             }
             catch (ArgumentException e)
             {
-                SqlConnection con = new SqlConnection(@"Data Source=.;Initial Catalog=s3cr3tx;User=sa;Password=yourStrong(!)Password");
+                SqlConnection con = new SqlConnection(@"Data Source=.;Initial Catalog=s3cr3tx;Integrated Security=SSPI");
                 SqlCommand command = new SqlCommand();
                 command.CommandType = CommandType.StoredProcedure;
                 command.CommandText = @"dbo.InsertM";
@@ -611,7 +655,7 @@ namespace s3cr3tx.Controllers
             }
             catch (RegexMatchTimeoutException e)
             {
-                SqlConnection con = new SqlConnection(@"Data Source=.;Initial Catalog=s3cr3tx;User=sa;Password=yourStrong(!)Password");
+                SqlConnection con = new SqlConnection(@"Data Source=.;Initial Catalog=s3cr3tx;Integrated Security=SSPI");
                 SqlCommand command = new SqlCommand();
                 command.CommandType = CommandType.StoredProcedure;
                 command.CommandText = @"dbo.insertLog";
@@ -632,7 +676,7 @@ namespace s3cr3tx.Controllers
                 Bundle bundleCurrent = new Bundle();
                 if (IsValidEmail(Email))
                 {
-                    SqlConnection con = new SqlConnection(@"Data Source=.;Initial Catalog=s3cr3tx;User=sa;Password=yourStrong(!)Password");
+                    SqlConnection con = new SqlConnection(@"Data Source=.;Initial Catalog=s3cr3tx;Integrated Security=SSPI");
                     SqlCommand command = new SqlCommand();
                     command.CommandType = CommandType.StoredProcedure;
                     command.CommandText = @"dbo.USP_GetBundle_M";
@@ -664,7 +708,7 @@ namespace s3cr3tx.Controllers
             {
                 Bundle bunEmpty = new Bundle();
                 //Console.WriteLine(@"Error: " + ex.GetBaseException().ToString());
-                SqlConnection con = new SqlConnection(@"Data Source=.;Initial Catalog=s3cr3tx;User=sa;Password=yourStrong(!)Password");
+                SqlConnection con = new SqlConnection(@"Data Source=.;Initial Catalog=s3cr3tx;Integrated Security=SSPI");
                 SqlCommand command = new SqlCommand();
                 command.CommandType = CommandType.StoredProcedure;
                 command.CommandText = @"dbo.insertLog";
@@ -741,7 +785,7 @@ namespace s3cr3tx.Controllers
             }
             catch (Exception ex)
             {
-                using (SqlConnection con = new SqlConnection(@"Data Source=.;Initial Catalog=s3cr3tx;User=sa;Password=yourStrong(!)Password"))
+                using (SqlConnection con = new SqlConnection(@"Data Source=.;Initial Catalog=s3cr3tx;Integrated Security=SSPI"))
                 {
 
                     using (SqlCommand command = new SqlCommand())
@@ -765,8 +809,11 @@ namespace s3cr3tx.Controllers
     
     public class NewK
     {
-        public string name { get; set; }
+        [Required]
+        public string email { get; set; }
+        [Required]
         public string pd { get; set; }
+        [Required]
         public string pd2 { get; set; }
     }
     class ebundle
@@ -791,7 +838,7 @@ namespace s3cr3tx.Controllers
 
         public static ebundle GetEbundle(string email)
         {
-            using (SqlConnection con = new SqlConnection(@"Data Source=.;Initial Catalog=s3cr3tx;User=sa;Password=yourStrong(!)Password"))
+            using (SqlConnection con = new SqlConnection(@"Data Source=.;Initial Catalog=s3cr3tx;Integrated Security=SSPI"))
             {
                 //string strConnection = "Server=localhost;Database=S;User Id=sa;Password=Sunsh1n3-20p;";
                 //SqlConnection con = new SqlConnection(strConnection);
@@ -816,5 +863,66 @@ namespace s3cr3tx.Controllers
                 }
             }
         }
+        //public class CustomHeaderSwaggerAttribute : IOperationFilter
+        //{
+
+        //    public void Apply(OpenApiOperation operation, OperationFilterContext context)
+        //    {
+        //        if (operation.Parameters == null)
+        //            operation.Parameters = new List<OpenApiParameter>();
+
+        //        operation.Parameters.Add(new OpenApiParameter
+        //        {
+        //            Name = "Email",
+        //            In = ParameterLocation.Header,
+        //            Required = true,
+        //            Schema = new OpenApiSchema
+        //            {
+        //                Type = "string"
+        //            }
+        //        });
+        //        operation.Parameters.Add(new OpenApiParameter
+        //        {
+        //            Name = "APIToken",
+        //            In = ParameterLocation.Header,
+        //            Required = true,
+        //            Schema = new OpenApiSchema
+        //            {
+        //                Type = "string"
+        //            }
+        //        });
+        //        operation.Parameters.Add(new OpenApiParameter
+        //        {
+        //            Name = "AuthCode",
+        //            In = ParameterLocation.Header,
+        //            Required = true,
+        //            Schema = new OpenApiSchema
+        //            {
+        //                Type = "string"
+        //            }
+        //        });
+        //        operation.Parameters.Add(new OpenApiParameter
+        //        {
+        //            Name = "EorD",
+        //            In = ParameterLocation.Header,
+        //            Required = true,
+        //            Schema = new OpenApiSchema
+        //            {
+        //                Type = "string"
+        //            }
+        //        });
+        //        operation.Parameters.Add(new OpenApiParameter
+        //        {
+        //            Name = "Input",
+        //            In = ParameterLocation.Header,
+        //            Required = true,
+        //            Schema = new OpenApiSchema
+        //            {
+        //                Type = "string"
+        //            }
+        //        });
+        //    }
+
+        //}
     }
 }
